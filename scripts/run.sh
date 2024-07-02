@@ -23,9 +23,9 @@ fi
 
 
 # Root Directories
-GPUS="" # GPU size for tensor_parallel.
-ROOT_DIR="" # the path that stores generated task samples and model predictions. 
-MODEL_DIR="" # the path that contains individual model folders from HUggingface.
+GPUS="1" # GPU size for tensor_parallel.
+ROOT_DIR="../results" # the path that stores generated task samples and model predictions. 
+MODEL_DIR="../models" # the path that contains individual model folders from HUggingface.
 ENGINE_DIR="" # the path that contains individual engine folders from TensorRT-LLM.
 
 

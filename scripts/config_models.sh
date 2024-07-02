@@ -30,6 +30,9 @@ MODEL_SELECT() {
     ENGINE_DIR=$3
     
     case $MODEL_NAME in
+        mistral-7b-chat)
+            MODEL_PATH="${MODEL_DIR}/Mistral-7B-Instruct-v0.2"
+            ;;
         llama2-7b-chat)
             MODEL_PATH="${MODEL_DIR}/llama2-7b-chat-hf"
             MODEL_TEMPLATE_TYPE="meta-chat"
