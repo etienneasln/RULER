@@ -4,4 +4,4 @@ __pycache__/
 .vscode/
 *.out
 *.json
-models/Mistral-7B-Instruct-v0.2/
+models/
