@@ -33,7 +33,7 @@ MODEL_SELECT() {
         mistral-7b-chat)
             MODEL_PATH="${MODEL_DIR}/Mistral-7B-Instruct-v0.2"
             MODEL_TEMPLATE_TYPE="base"
-            MODEL_FRAMEWORK="vllm"
+            MODEL_FRAMEWORK="hf"
             ;;
         llama2-7b-chat)
             MODEL_PATH="${MODEL_DIR}/llama2-7b-chat-hf"
