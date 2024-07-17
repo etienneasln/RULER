@@ -5,3 +5,4 @@ __pycache__/
 *.out
 *.json
 models/
+results/

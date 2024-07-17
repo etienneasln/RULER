@@ -14,11 +14,12 @@
 
 TEMPERATURE="0.0" # greedy
 TOP_P="1.0"
-TOP_K="32"
+#TOP_K="32"
+TOP_K="1"
 SEQ_LENGTHS=(
-    131072
-    65536
-    32768
+    #131072
+    #65536
+    #32768
     16384
     8192
     4096
@@ -28,7 +29,9 @@ MODEL_SELECT() {
     MODEL_NAME=$1
     MODEL_DIR=$2
     ENGINE_DIR=$3
-    
+    MODEL_PATH=$MODEL_NAME
+    MODEL_TEMPLATE_TYPE="base"
+    MODEL_FRAMEWORK="hf"
     case $MODEL_NAME in
         mistral-7b-chat)
             MODEL_PATH="${MODEL_DIR}/Mistral-7B-Instruct-v0.2"
