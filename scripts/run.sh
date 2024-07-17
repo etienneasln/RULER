@@ -121,7 +121,7 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
         time_diff=$((end_time - start_time))
         total_time=$((total_time + time_diff))
     done
-    
+    #To evaluate perplexity, do evaluation "inside" the model, get the loss for the correct answer and exponentiate it
     python eval/evaluate.py \
         --data_dir ${PRED_DIR} \
         --benchmark ${BENCHMARK}

@@ -50,6 +50,7 @@ class HuggingFaceModel:
     def __call__(self, prompt: str, **kwargs) -> Dict[str, List[str]]:
         if self.pipeline is None:
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+            #Tokenize prompt and answer separately and concatenate them before giving them to the model
             output = self.model.generate(
                 **inputs,
                 **self.generation_kwargs
