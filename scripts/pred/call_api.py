@@ -208,14 +208,17 @@ def main():
         print(f"Module data.{args.benchmark}.constants not found.")
 
     tasks_base = module.TASKS
+    #tasks_base is a python dictionary specifying for each task tokens to generate, template and answer prefix
     with open(os.path.join(curr_folder, f"../{args.benchmark}.yaml"), "r") as f:
         tasks_customized = yaml.safe_load(f)
 
     if args.task not in tasks_customized:
         raise ValueError(f'{args.task} is not found in config_tasks.yaml')
-        
+    
     config = tasks_customized.get(args.task)
     config.update(tasks_base[config['task']])
+    #Config is a python dictionary caracterizing a task
+
 
     task_file = args.data_dir / args.task / f'{args.subset}.jsonl'
     
@@ -234,12 +237,16 @@ def main():
     else:
         data = read_manifest(task_file)
 
+    #Load data, if prediction already exists, then take data that hasn't been predicted yet, otherwise just take all the task json file
+    print(f"DATA:{data}")
+
     # Load api
     llm = get_llm(config['tokens_to_generate'])
     
     def get_output(idx, index, input, outputs, others, truncation, length):
         while True:
             try:
+                #this runs the __call__ method in model_wrappers
                 pred = llm(prompt=input)
                 break
             except Exception as e:
