@@ -1,9 +1,13 @@
 import torch 
+
+import sys
+sys.path.insert(1,"../pred")
+
 from model_wrappers import HuggingFaceModel
 from nemo.collections.asr.parts.utils.manifest_utils import read_manifest
+from tqdm import tqdm
 
-
-if __name__ == "__main__":
+def main():
     model_name_or_path="mistralai/Mistral-7B-Instruct-v0.2"
     temperature=0.0
     top_k=1
@@ -21,16 +25,37 @@ if __name__ == "__main__":
         stop=stop_words,
         max_new_tokens=tokens_to_generate,
     )
-    example_path="example.jsonl"
+    example_path="../pred/example.jsonl"
     data=read_manifest(example_path)
-    for sample in data:
-        answer=sample["answer"]
-        answertokens=llm.tokenizer(answer,return_tensors="pt",add_special_tokens=False)['input_ids']
-        labels = answertokens.clone()
-        labels[:, :-1] = answertokens[:, 1:]
-        labels[:, -1] = -100  # We ignore the loss on the last token prediction
+    losses=[]
+    model=llm.pipeline.model if llm.pipeline else llm.model
+    tokenizer=llm.pipeline.tokenizer if llm.pipeline else llm.tokenizer
+    for sample in tqdm(data):
 
-        # Forward pass to get the loss
-        outputs = llm(answertokens, labels=labels)
-        loss = outputs.loss
+        prompt=sample["prompt"]
+        answer=sample["answer"]
+        
+        
+        
+        prompttokens=tokenizer(prompt,return_tensors="pt").to(model.device).input_ids
+        answertokens=tokenizer(answer,return_tensors="pt",add_special_tokens=False).to(model.device).input_ids
+        concattokens=torch.cat([prompttokens,answertokens],1)
+        labels = concattokens.clone()
+        
+        lengthofprompt=len(prompttokens[0].tolist())
+        labels[:,:lengthofprompt]=-100
+        
+
+        with torch.no_grad():
+            outputs=model(concattokens, labels=labels)
+        
+
+        loss =outputs.loss
+        losses.append(loss)
         print(loss)
+    ppl=torch.exp(torch.stack(losses).mean())
+    print(f"Perplexity:{ppl}")
+
+
+if __name__ == "__main__":
+    main()
