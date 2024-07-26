@@ -238,7 +238,7 @@ def main():
         data = read_manifest(task_file)
 
     #Load data, if prediction already exists, then take data that hasn't been predicted yet, otherwise just take all the task json file
-    print(f"DATA:{data}")
+    # print(f"DATA:{data}")
 
     # Load api
     llm = get_llm(config['tokens_to_generate'])

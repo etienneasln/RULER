@@ -1,7 +1,6 @@
 .ipynb_checkpoints/
 __pycache__/
 *.jsonl
-!scripts/pred/example.jsonl
 .vscode/
 *.out
 *.json

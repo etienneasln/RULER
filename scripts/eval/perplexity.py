@@ -8,7 +8,8 @@ from nemo.collections.asr.parts.utils.manifest_utils import read_manifest
 from tqdm import tqdm
 
 def main():
-    model_name_or_path="mistralai/Mistral-7B-Instruct-v0.2"
+    
+    model_name_or_path="LargeWorldModel/LWM-Text-Chat-1M"
     temperature=0.0
     top_k=1
     top_p=1.0
@@ -25,11 +26,16 @@ def main():
         stop=stop_words,
         max_new_tokens=tokens_to_generate,
     )
-    example_path="../pred/example.jsonl"
+    task='niah_single_1'
+    contextlength=4096
+    strcontextlength=str(contextlength)
+    example_path="../pred/examples/"+model_name_or_path+"/synthetic/"+strcontextlength+"/example_"+task+".jsonl"
     data=read_manifest(example_path)
     losses=[]
     model=llm.pipeline.model if llm.pipeline else llm.model
     tokenizer=llm.pipeline.tokenizer if llm.pipeline else llm.tokenizer
+    device=model.device
+    # for nkeeplast in range(1,100):
     for sample in tqdm(data):
 
         prompt=sample["prompt"]
@@ -37,24 +43,40 @@ def main():
         
         
         
-        prompttokens=tokenizer(prompt,return_tensors="pt").to(model.device).input_ids
-        answertokens=tokenizer(answer,return_tensors="pt",add_special_tokens=False).to(model.device).input_ids
+        prompttokens=tokenizer(prompt,return_tensors="pt").to(device).input_ids
+        answertokens=tokenizer(answer,return_tensors="pt",add_special_tokens=False).to(device).input_ids
         concattokens=torch.cat([prompttokens,answertokens],1)
-        labels = concattokens.clone()
+
+        tokens = concattokens
+        labels = tokens.clone()
         
-        lengthofprompt=len(prompttokens[0].tolist())
-        labels[:,:lengthofprompt]=-100
+        
+        
+        lengthofanswer=len(answertokens[0].tolist())
+        labels[:,:-lengthofanswer]=-100
+
+        #----------------------------------------
+        # For Mistral, 4096, niah_single_1
+        # Evaluating perplexity when context does not include prompt --> average perplexity over the 500 samples is approximately 175
+        # When context includes prompt, average perplexity is approximately 1.42
+        # labels = answertokens.clone()
+        # tokens = answertokens
+        #---------------------------------
         
 
         with torch.no_grad():
-            outputs=model(concattokens, labels=labels)
+            outputs=model(tokens, labels=labels)
+        
+        loss = outputs.loss
+        losses.append(loss)
         
 
-        loss =outputs.loss
-        losses.append(loss)
-        print(loss)
+
+
     ppl=torch.exp(torch.stack(losses).mean())
+    # print(f"Perplexity for nkeeplast:{nkeeplast}:{ppl}")
     print(f"Perplexity:{ppl}")
+    losses.clear()
 
 
 if __name__ == "__main__":
