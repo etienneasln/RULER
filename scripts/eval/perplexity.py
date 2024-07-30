@@ -2,14 +2,23 @@ import torch
 
 import sys
 sys.path.insert(1,"../pred")
+import argparse
 
 from model_wrappers import HuggingFaceModel
 from nemo.collections.asr.parts.utils.manifest_utils import read_manifest
 from tqdm import tqdm
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_name_or_path", type=str, required=True, help="Name or path of the model that is to be evaluated")
+parser.add_argument("--context_length", type=int, required=True,help="Context length of the prompts to evaluate perplexity on")
+parser.add_argument("--task_name", type=str,required=True,help="Task we evaluate perplexity on")
+parser.add_argument("--only_answer",type=bool,default=False,help="If activated, we evaluate perplexity without the prompt as context. Otherwise we evaluate with the whole prompt and answer as context")
+
+args=parser.parse_args()
+
 def main():
     
-    model_name_or_path="LargeWorldModel/LWM-Text-Chat-1M"
+    model_name_or_path=args.model_name_or_path
     temperature=0.0
     top_k=1
     top_p=1.0
@@ -26,8 +35,8 @@ def main():
         stop=stop_words,
         max_new_tokens=tokens_to_generate,
     )
-    task='niah_single_1'
-    contextlength=4096
+    task=args.task_name
+    contextlength=args.context_length
     strcontextlength=str(contextlength)
     example_path="../pred/examples/"+model_name_or_path+"/synthetic/"+strcontextlength+"/example_"+task+".jsonl"
     data=read_manifest(example_path)
@@ -35,6 +44,7 @@ def main():
     model=llm.pipeline.model if llm.pipeline else llm.model
     tokenizer=llm.pipeline.tokenizer if llm.pipeline else llm.tokenizer
     device=model.device
+    onlyanswer=args.only_answer
     # for nkeeplast in range(1,100):
     for sample in tqdm(data):
 
@@ -47,20 +57,20 @@ def main():
         answertokens=tokenizer(answer,return_tensors="pt",add_special_tokens=False).to(device).input_ids
         concattokens=torch.cat([prompttokens,answertokens],1)
 
-        tokens = concattokens
-        labels = tokens.clone()
-        
-        
-        
-        lengthofanswer=len(answertokens[0].tolist())
-        labels[:,:-lengthofanswer]=-100
+        if not onlyanswer:
+            tokens = concattokens
+            labels = tokens.clone()
+            
+            
+            
+            lengthofanswer=len(answertokens[0].tolist())
+            labels[:,:-lengthofanswer]=-100
 
         #----------------------------------------
-        # For Mistral, 4096, niah_single_1
-        # Evaluating perplexity when context does not include prompt --> average perplexity over the 500 samples is approximately 175
-        # When context includes prompt, average perplexity is approximately 1.42
-        # labels = answertokens.clone()
-        # tokens = answertokens
+        # Evaluating perplexity when context does not include prompt 
+        else:
+            labels = answertokens.clone()
+            tokens = answertokens
         #---------------------------------
         
 
@@ -74,8 +84,11 @@ def main():
 
 
     ppl=torch.exp(torch.stack(losses).mean())
-    # print(f"Perplexity for nkeeplast:{nkeeplast}:{ppl}")
-    print(f"Perplexity:{ppl}")
+    if onlyanswer:
+        text="Average perplexity over the answer by passing only the answer as context"
+    else:
+        text="Average perplexity over the answer by passing all the tokens of the concatenation of the prompt and the answer as context"
+    print(f"{text}:{ppl}")
     losses.clear()
 
 
