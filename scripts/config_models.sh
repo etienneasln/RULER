@@ -15,14 +15,16 @@
 TEMPERATURE="0.0" # greedy
 TOP_P="1.0"
 #TOP_K="32"
-TOP_K="1"
+TOP_K="5"
 SEQ_LENGTHS=(
-    #131072
-    #65536
-    #32768
+    # 131072
+    # 65536
+    # 32768
     16384
     8192
     4096
+    2048
+    1024
 )
 
 MODEL_SELECT() {
@@ -33,6 +35,10 @@ MODEL_SELECT() {
     MODEL_TEMPLATE_TYPE="base"
     MODEL_FRAMEWORK="hf"
     case $MODEL_NAME in
+        landmark-attention-model)
+            MODEL_FRAMEWORK="landmark"
+            MODEL_PATH="${MODEL_DIR}/landmark-attention-model"
+            ;;
         mistral-7b-chat)
             MODEL_PATH="${MODEL_DIR}/Mistral-7B-Instruct-v0.2"
             MODEL_TEMPLATE_TYPE="base"

@@ -11,23 +11,48 @@ parser.add_argument("--context_length",type=int,default=16384,help="Context leng
 
 args=parser.parse_args()
 
-def copy_jsonl_data(source_file, target_directory,target_file):
-    """
-    Copy all data from source JSONL file to target JSONL file.
-    
-    :param source_file: Path to the source JSONL file.
-    :param target_file: Path to the target JSONL file.
-    """
+def copy_jsonl_data_for_task(source_file, target_directory,target_file):
     target_file_path=target_directory+"/"+target_file
     samples=read_manifest(source_file)
     os.makedirs(target_directory,exist_ok=True)
     with open(target_file_path, 'w', encoding='utf-8') as tgt:
         for sample in samples:
-            concat=sample['input']+" "+sample['outputs'][0]+'.'
-            questionindex=concat.index('?')
-            prompt=concat[:questionindex+1]
-            answer=concat[questionindex+2:]
-            map={"prompt":prompt,"answer":answer,"concatenation":concat}
+
+            input=sample['input']
+            prompt=input
+
+            map={"prompt":prompt}
+            
+            outputs=sample['outputs']
+            
+            match task:
+                case 'niah_single_1'|'niah_single_2'|'niah_single_3'|'niah_multikey_1'|'niah_multikey_2'|'niah_multikey_3':
+                    output=outputs[0]
+                    concat=input+" "+output+"."
+                    answer=output+'.'
+                    map["answer_0"]=answer
+                    map["concatenation_0"]=concat
+                case 'vt'|'fwe':
+                    answer=" ".join(outputs)
+                    concat=input+" "+answer
+                    map["answer_0"]=answer
+                    map["concatenation_0"]=concat
+                case 'qa_1'|'qa_2':
+                    for i in range(len(outputs)):
+                        output=outputs[i]
+                        concat=input+" "+output+"."
+                        answer=output+'.'
+                        map[f"answer_{i}"]=answer
+                        map[f"concatenation_{i}"]=concat
+                case 'cwe':
+                    answerlist=[]
+                    for i in range(len(output)):
+                        output=outputs[i]
+                        answerlist.append(f"{i+1}. {output}")
+                    answer=" ".join(answerlist)
+                    concat=input+" "+answer
+                    map["answer_0"]=answer
+                    map["concatenation_0"]=concat
             json.dump(map,tgt)
             tgt.write('\n')
 
@@ -37,7 +62,7 @@ if __name__ == "__main__":
     if single_copy:
         contextlengths=[args.context_length]
     else:
-        contextlengths=[4096,8192,16384]
+        contextlengths=[1024,2048,4096,8192,16384,32768]
     model_path=args.model_name_or_path
     task=args.task_name
     target_file= 'example_'+task+'.jsonl'
@@ -45,4 +70,4 @@ if __name__ == "__main__":
         strcontextlength=str(contextlength)
         source_file_path = '../results/'+model_path+'/synthetic/'+strcontextlength+'/data/'+task+'/validation.jsonl'
         target_directory='pred/examples/'+model_path+'/synthetic/'+strcontextlength
-        copy_jsonl_data(source_file_path, target_directory,target_file)
+        copy_jsonl_data_for_task(source_file_path, target_directory,target_file)

@@ -32,6 +32,8 @@ def select_tokenizer(tokenizer_type, tokenizer_path):
         return OpenAITokenizer(model_path=tokenizer_path)
     elif tokenizer_type == 'gemini':
         return GeminiTokenizer(model_path=tokenizer_path)
+    elif tokenizer_type == 'landmark':
+        return LandmarkTokenizer(model_path=tokenizer_path)
     else:
         raise ValueError(f"Unknown tokenizer_type {tokenizer_type}")
 
@@ -103,3 +105,16 @@ class GeminiTokenizer:
 
     def tokens_to_text(self, tokens: List[int]) -> str:
         pass
+
+class LandmarkTokenizer:
+    def __init__(self, model_path, cache_path) -> None:
+        from transformers import AutoTokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    
+    def text_to_tokens(self, text: str) -> List[str]:
+        tokens = self.tokenizer.tokenize(text)
+        return tokens
+
+    def tokens_to_text(self, tokens: List[int]) -> str:
+        text = self.tokenizer.convert_tokens_to_string(tokens)
+        return text

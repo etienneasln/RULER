@@ -16,6 +16,8 @@ import json
 import logging
 import requests
 import torch
+import sys
+
 from typing import Dict, List, Optional
 
 
@@ -85,6 +87,20 @@ class HuggingFaceModel:
 
         return results
 
+    # def __call__(self, prompt: str, **kwargs) -> Dict[str, List[str]]:
+    #     output = self.pipeline(text_inputs=prompt, **self.generation_kwargs,)
+    #     assert len(output) == 1
+    #     generated_text = output[0]["generated_text"]
+            
+    #     # remove the input form the generated text
+    #     if generated_text.startswith(prompt):
+    #         generated_text = generated_text[len(prompt) :]
+                
+    #     if self.stop is not None:
+    #         for s in self.stop:
+    #             generated_text = generated_text.split(s)[0]
+    #     return {'text': [generated_text]}
+
 
 class MambaModel:
     def __init__(self, name_or_path: str, **generation_kwargs) -> None:
@@ -122,3 +138,101 @@ class MambaModel:
     def process_batch(self, prompts: List[str], **kwargs) -> List[dict]:
         # FIXME: naive implementation
         return [self.__call__(prompt, **kwargs) for prompt in prompts]
+
+
+
+
+
+class LandmarkAttentionModel:
+    
+    path_to_landmark_attention="../models/landmark-attention-repo/"
+    path_to_fined_tuned_weights=path_to_landmark_attention+"llama/llama_weights/7B_hf"
+    llama_weights_7b_tuned=path_to_fined_tuned_weights
+    use_flash = False 
+    top_k=5
+    cache_path = path_to_landmark_attention+"llama/hf-cache/"
+    dtype = torch.bfloat16
+    
+    def __init__(self, name_or_path, **generation_kwargs) -> None:
+        # print(LandmarkAttentionModel.path_to_landmark_attention+"llama")
+        
+        sys.path.insert(1,LandmarkAttentionModel.path_to_landmark_attention+"llama")    
+        from llama_mem import LlamaForCausalLM
+        # from client_wrappers import LlamaForCausalLM
+        import transformers
+
+        
+        # model_kwargs = {"attn_implementation": "flash_attention_2"}
+
+        model = LlamaForCausalLM.from_pretrained(
+            name_or_path,
+            cache_dir=LandmarkAttentionModel.cache_path,
+            torch_dtype=LandmarkAttentionModel.dtype,
+        )
+
+        # model.to('cuda:0')
+        # model.to('cpu')
+
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+            name_or_path,
+            cache_dir=LandmarkAttentionModel.cache_path,
+            model_max_length=model.config.train_context_length,
+            padding_side="right",
+            use_fast=False,
+        )
+
+
+        mem_id = self.tokenizer.convert_tokens_to_ids("<landmark>")
+        model.set_mem_id(mem_id)
+        from transformers import pipeline
+
+        self.pipeline = pipeline("text-generation",
+                                model=model,
+                                tokenizer=self.tokenizer, 
+                                device=model.device,
+                                offload_cache_to_cpu=LandmarkAttentionModel.use_flash, 
+                                use_flash=LandmarkAttentionModel.use_flash, 
+                                cache_top_k=LandmarkAttentionModel.top_k,
+                                # model_kwargs=model_kwargs,
+                                )
+        
+
+    def __call__(self, prompt: str, **kwargs) -> Dict[str, List[str]]:
+        return self.process_batch([prompt], **kwargs)[0]
+
+        
+    
+    def process_batch(self, prompts: List[str], **kwargs) -> List[dict]:
+        
+        output = self.pipeline(text_inputs=prompts,num_return_sequences=1,max_new_tokens=10)
+        assert len(output) == len(prompts)
+        generated_texts = [llm_result[0]["generated_text"] for llm_result in output]
+
+        results = []
+
+        for text, prompt in zip(generated_texts, prompts):
+            # remove the input form the generated text
+            if text.startswith(prompt):
+                text = text[len(prompt):]
+
+            if self.stop is not None:
+                for s in self.stop:
+                    text = text.split(s)[0]
+
+            results.append({'text': [text]})
+
+        return results
+
+    # def __call__(self, prompt: str, **kwargs) -> Dict[str, List[str]]:
+    #     output = self.pipeline(text_inputs=prompt, **self.generation_kwargs,)
+    #     assert len(output) == 1
+    #     generated_text = output[0]["generated_text"]
+            
+    #     # remove the input form the generated text
+    #     if generated_text.startswith(prompt):
+    #         generated_text = generated_text[len(prompt) :]
+                
+    #     if self.stop is not None:
+    #         for s in self.stop:
+    #             generated_text = generated_text.split(s)[0]
+    #     return {'text': [generated_text]}

@@ -45,42 +45,51 @@ def main():
     tokenizer=llm.pipeline.tokenizer if llm.pipeline else llm.tokenizer
     device=model.device
     onlyanswer=args.only_answer
-    # for nkeeplast in range(1,100):
     for sample in tqdm(data):
 
+        nvariables=len(sample)
+        nanswers=int((nvariables-1)/2)
+        
+        lossforsample=0
+
         prompt=sample["prompt"]
-        answer=sample["answer"]
-        
-        
-        
         prompttokens=tokenizer(prompt,return_tensors="pt").to(device).input_ids
-        answertokens=tokenizer(answer,return_tensors="pt",add_special_tokens=False).to(device).input_ids
-        concattokens=torch.cat([prompttokens,answertokens],1)
-
-        if not onlyanswer:
-            tokens = concattokens
-            labels = tokens.clone()
-            
-            
-            
-            lengthofanswer=len(answertokens[0].tolist())
-            labels[:,:-lengthofanswer]=-100
-
-        #----------------------------------------
-        # Evaluating perplexity when context does not include prompt 
-        else:
-            labels = answertokens.clone()
-            tokens = answertokens
-        #---------------------------------
         
-
-        with torch.no_grad():
-            outputs=model(tokens, labels=labels)
+        for i in range(nanswers):
+            
+            answer=sample[f"answer_{i}"]
         
-        loss = outputs.loss
-        losses.append(loss)
         
+        
+            
+            answertokens=tokenizer(answer,return_tensors="pt",add_special_tokens=False).to(device).input_ids
+            concattokens=torch.cat([prompttokens,answertokens],1)
 
+            if not onlyanswer:
+                
+                tokens = concattokens
+                labels = tokens.clone()
+                
+                
+                
+                lengthofanswer=len(answertokens[0].tolist())
+                labels[:,:-lengthofanswer]=-100
+
+            #----------------------------------------
+            # Evaluating perplexity when context does not include prompt 
+            else:
+                labels = answertokens.clone()
+                tokens = answertokens
+            #---------------------------------
+            
+
+            with torch.no_grad():
+                outputs=model(tokens, labels=labels)
+            
+            lossforanswer=outputs.loss
+            lossforsample = lossforsample + lossforanswer
+        losses.append(lossforsample/nanswers)
+        
 
 
     ppl=torch.exp(torch.stack(losses).mean())

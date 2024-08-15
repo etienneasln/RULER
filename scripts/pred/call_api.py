@@ -52,6 +52,7 @@ SERVER_TYPES = (
     'gemini',
     'hf',
     'mamba',
+    'landmark',
 )
 
 
@@ -179,6 +180,18 @@ def get_llm(tokens_to_generate):
             max_new_tokens=tokens_to_generate,
         )
     
+    elif args.server_type == 'landmark':
+        from model_wrappers import LandmarkAttentionModel
+        llm=LandmarkAttentionModel(
+            name_or_path=args.model_name_or_path,
+            # do_sample=args.temperature > 0,
+            # repetition_penalty=1,
+            # temperature=args.temperature,
+            # top_k=args.top_k,
+            # top_p=args.top_p,
+            # max_new_tokens=tokens_to_generate,
+        )
+    
     elif args.server_type == 'mamba':
         from model_wrappers import MambaModel
         # mamba uses its own generation function, do not pass in do_sample
@@ -248,7 +261,7 @@ def main():
 
     def get_output(idx_list, index_list, input_list, outputs_list, others_list, truncation_list, length_list):
         nonlocal llm
-
+        
         while True:
             try:
                 pred_list = llm.process_batch(prompts=input_list)
@@ -294,15 +307,16 @@ def main():
     if len(batch):
         batched_data.append(batch)
 
+    
+
     # setting buffering=1 to force to dump the output after every line, so that we can see intermediate generations
     with open(pred_file, 'at', encoding="utf-8", buffering=1) as fout:
         # the data is processed sequentially, so we can store the start and end of current processing window
         start_idx = 0  # window: [start_idx, end_idx]
-
+        
         for batch_idx, batch in tqdm(enumerate(batched_data), total=len(batched_data)):
             idx_list = [data_point['idx'] for data_point in batch]
             end_idx = idx_list[-1]  # the data in a batch is ordered
-
             thread = threading.Thread(
                 target=get_output,
                 kwargs=dict(
